@@ -1,6 +1,6 @@
 import { io } from "socket.io-client";
 
-const socket = io("http://localhost:5000"); // Change to your backend URL
+const socket = io("https://useless-project-py4u.onrender.com"); // Change to your backend URL
 
 socket.on("connect", () => {
   console.log("Connected to socket server as", socket.id);

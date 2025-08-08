@@ -1,5 +1,5 @@
 import { io } from "socket.io-client";
-const socket = io("https://useless-project-py4u.onrender.com"); // Change to your backend URL
+const socket = io("https://useless-project-py4u.onrender.com",{withCredentials:true}); // Change to your backend URL
 
 // After login or fetching user's groups:
 socket.emit("join-groups", userId, [groupId1, groupId2]);
