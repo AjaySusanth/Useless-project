@@ -1,9 +1,9 @@
 import express from "express";
-import { triggerAlert } from "../controllers/alert.controller.js";
-import {requireAuth} from "../middleware/auth.middleware.js";
+import { triggerAlert, releaseAlert } from "../controllers/alert.controller.js";
 
 const router = express.Router();
 
-router.post("/trigger", requireAuth, triggerAlert);
+router.post("/trigger", triggerAlert);
+router.post("/release", releaseAlert);
 
 export default router;

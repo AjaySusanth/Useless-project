@@ -22,7 +22,7 @@ export default function Signup() {
     setError("");
     try {
       await signup(form);
-      navigate("/dashboard");
+      navigate("/groups");
     } catch (err) {
       setError(err.response?.data?.error || "Something went wrong");
     }

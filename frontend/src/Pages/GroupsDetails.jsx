@@ -1,7 +1,24 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams } from "react-router-dom";
-// You need to implement these in your services!
-import { getGroupDetails, alertGroup } from "../services/groups";
+import { io } from "socket.io-client";
+import axios from "axios"; // Added axios import
+import { getGroupDetails } from "../services/groups";
+
+// Adjust to your backend’s Socket.IO endpoint
+const SOCKET_URL = "http://localhost:5000";
+
+// Replace this with your actual user context/hook (from auth)
+const getCurrentUser = () => {
+  // Example: get from localStorage, context, or props
+  // return JSON.parse(localStorage.getItem("user"));
+  return { username: "Ajay" }; // Hardcoded for demo, replace with real user!
+};
+
+export const alertGroup = (groupId, triggeredBy) =>
+  axios.post("http://localhost:5000/api/alerts/trigger", { groupId, triggeredBy });
+
+export const releaseGroupAlert = (groupId, triggeredBy) =>
+  axios.post("http://localhost:5000/api/alerts/release", { groupId, triggeredBy });
 
 export default function GroupDetails() {
   const { groupId } = useParams();
@@ -9,31 +26,77 @@ export default function GroupDetails() {
   const [error, setError] = useState("");
   const [alerting, setAlerting] = useState(false);
   const [success, setSuccess] = useState("");
+  const [activeAlerts, setActiveAlerts] = useState([]); // Array of alerts
+  const [alerts, setAlerts] = useState([]);
+  const socketRef = useRef(null);
 
+  const currentUser = getCurrentUser();
+
+  // Fetch group details
   useEffect(() => {
+    async function fetchGroup() {
+      setError("");
+      setSuccess("");
+      try {
+        const res = await getGroupDetails(groupId);
+        setGroup(res.data.group);
+        if (res.data.group.activeAlerts && Array.isArray(res.data.group.activeAlerts)) {
+          setActiveAlerts(res.data.group.activeAlerts);
+        } else {
+          setActiveAlerts([]);
+        }
+      } catch (err) {
+        setError(
+          err.response?.data?.error || "Could not fetch group details."
+        );
+      }
+    }
     fetchGroup();
-    // eslint-disable-next-line
   }, [groupId]);
 
-  async function fetchGroup() {
-    setError("");
-    setSuccess("");
-    try {
-      const res = await getGroupDetails(groupId);
-      setGroup(res.data.group);
-    } catch (err) {
-      setError(
-        err.response?.data?.error || "Could not fetch group details."
-      );
+  // Setup Socket.IO for real-time alert updates
+  useEffect(() => {
+    const sock = io(SOCKET_URL, { withCredentials: true });
+    socketRef.current = sock;
+    if (groupId && currentUser?.username) {
+      sock.emit("join-groups", currentUser.username, [groupId]);
     }
-  }
+    sock.on("alert-triggered", (data) => {
+      if (data.groupId === groupId) {
+        setActiveAlerts(data.activeAlerts || []);
+        setAlerts((prev) => [
+          {
+            ...data,
+            receivedAt: new Date().toISOString(),
+          },
+          ...prev,
+        ]);
+      }
+    });
+    sock.on("alert-released", (data) => {
+      if (data.groupId === groupId) {
+        setActiveAlerts(data.activeAlerts || []);
+        setAlerts((prev) => [
+          {
+            ...data,
+            receivedAt: new Date().toISOString(),
+          },
+          ...prev,
+        ]);
+      }
+    });
+    return () => {
+      sock.disconnect();
+    };
+  }, [groupId, currentUser?.username]);
 
+  // Handle trigger alert
   async function handleAlert() {
     setAlerting(true);
     setError("");
     setSuccess("");
     try {
-      await alertGroup(groupId);
+      await alertGroup(groupId, currentUser.username);
       setSuccess("Alert triggered!");
     } catch (err) {
       setError(
@@ -43,6 +106,29 @@ export default function GroupDetails() {
       setAlerting(false);
     }
   }
+
+  // Handle release alert
+  async function handleRelease() {
+    setAlerting(true);
+    setError("");
+    setSuccess("");
+    try {
+      await releaseGroupAlert(groupId, currentUser.username);
+      setSuccess("Alert released!");
+    } catch (err) {
+      setError(
+        err.response?.data?.error || "Failed to release alert"
+      );
+    } finally {
+      setAlerting(false);
+    }
+  }
+
+  // Determine if current user has an active alert
+  const userAlert = activeAlerts.find(
+    (a) => a.triggeredBy === currentUser.username
+  );
+  const isAlertActive = activeAlerts.length > 0;
 
   if (error)
     return (
@@ -69,27 +155,58 @@ export default function GroupDetails() {
         <div className="flex items-center gap-2 mb-4">
           <span
             className={`inline-block w-3 h-3 rounded-full ${
-              group.alertActive ? "bg-red-500" : "bg-green-500"
+              isAlertActive ? "bg-red-500" : "bg-green-500"
             }`}
-            title={group.alertActive ? "Alert is Active" : "No Alert Active"}
+            title={isAlertActive ? "Alert is Active" : "No Alert Active"}
           />
-          <span className="text-sm">
-            {group.alertActive ? "Alert Active" : "No Alert"}
+          <span className="text-sm font-semibold">
+            {isAlertActive
+              ? `ALERT ACTIVE! by ${activeAlerts.map(a => a.triggeredBy).join(", ")}`
+              : "No Alert"}
           </span>
         </div>
-        <button
-          disabled={alerting || group.alertActive}
-          onClick={handleAlert}
-          className={`w-full p-2 rounded font-semibold transition ${
-            alerting || group.alertActive
-              ? "bg-gray-700 cursor-not-allowed"
-              : "bg-red-600 hover:bg-red-700"
-          }`}
-        >
-          {group.alertActive ? "Alert Ongoing" : alerting ? "Alerting..." : "🚨 Alert!"}
-        </button>
+        {userAlert ? (
+          <button
+            disabled={alerting}
+            onClick={handleRelease}
+            className="w-full bg-green-700 hover:bg-green-800 p-2 rounded font-semibold"
+          >
+            {alerting ? "Releasing..." : "✅ Release Your Alert"}
+          </button>
+        ) : (
+          <button
+            disabled={alerting || isAlertActive}
+            onClick={handleAlert}
+            className="w-full bg-red-600 hover:bg-red-700 p-2 rounded font-semibold"
+          >
+            {alerting ? "Alerting..." : "🚨 Trigger Alert"}
+          </button>
+        )}
         {success && (
           <p className="text-green-400 mt-2 text-sm">{success}</p>
+        )}
+      </div>
+
+      {/* Alert Log */}
+      <div className="bg-[#1c1c1c] rounded-lg w-[420px] p-4 mb-8 shadow-lg">
+        <h3 className="text-lg font-semibold mb-2">Alert Log</h3>
+        {alerts.length === 0 ? (
+          <p className="text-gray-400">No alerts yet for this group.</p>
+        ) : (
+          <ul className="space-y-2">
+            {alerts.map((alert) => (
+              <li
+                key={alert.alertId} // Changed key to use alertId, which is unique
+                className="bg-[#ffe5e5] border border-[#ff4b4b] text-[#b80000] p-3 rounded"
+              >
+                <b>{alert.message}</b>
+                <br />
+                <span className="text-xs">
+                  By: {alert.triggeredBy}
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 

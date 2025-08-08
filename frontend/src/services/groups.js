@@ -17,5 +17,3 @@ export const getMyGroups = () => {
 export const getGroupDetails = (groupId) =>
   axios.get(`${API_URL}/${groupId}`,{ withCredentials: true });
 
-export const alertGroup = (groupId) =>
-  axios.post(`${API_URL}/trigger`, { groupId },{ withCredentials: true });

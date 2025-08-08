@@ -1,31 +1,53 @@
-import {Alert} from '../models/models.js'
 
-// POST /api/alerts/trigger { groupId }
-export const triggerAlert = async (req, res) => {
-  const { groupId } = req.body;
-  const userId = req.user._id;
-  const group = await Group.findById(groupId);
+// In-memory alert status (per group, can have multiple active alerts)
+export const groupAlertStatus = {};
 
-  if (!group) return res.status(404).json({ error: "Group not found" });
+export const triggerAlert = (req, res) => {
+  const { groupId, triggeredBy } = req.body;
+  if (!groupId || !triggeredBy) return res.status(400).json({ error: "groupId and triggeredBy required" });
 
-  // Create alert in DB
-  const alert = new Alert({
-    group: groupId,
-    triggeredBy: userId,
-    active: true,
-    startedAt: new Date(),
-  });
-  await alert.save();
+  const startedAt = new Date().toISOString();
+  const alertId = `${groupId}_${triggeredBy}_${Date.now()}`;
 
-  // Emit to group via Socket.IO
+  if (!groupAlertStatus[groupId]) groupAlertStatus[groupId] = [];
+
+  // Check if this user already has an active alert
+  if (groupAlertStatus[groupId].some(a => a.triggeredBy === triggeredBy)) {
+    return res.status(400).json({ error: "You already activated an alert" });
+  }
+
+  groupAlertStatus[groupId].push({ triggeredBy, startedAt, alertId });
+
   const io = req.app.get("io");
   io.to(groupId).emit("alert-triggered", {
     groupId,
-    triggeredBy: userId,
+    triggeredBy,
     message: "SHUT UP! MAMA'S CALLING!",
-    alertId: alert._id,
-    startedAt: alert.startedAt
+    alertId,
+    startedAt,
+    activeAlerts: groupAlertStatus[groupId],
   });
+  res.json({ status: "alert sent" });
+};
 
-  res.status(201).json({ message: "Alert triggered", alert });
+export const releaseAlert = (req, res) => {
+  const { groupId, triggeredBy } = req.body;
+  if (!groupId || !triggeredBy) return res.status(400).json({ error: "groupId and triggeredBy required" });
+
+  if (!groupAlertStatus[groupId]) {
+    return res.status(400).json({ error: "No active alert to release" });
+  }
+
+  // Remove alert for this user
+  groupAlertStatus[groupId] = groupAlertStatus[groupId].filter(a => a.triggeredBy !== triggeredBy);
+
+  const io = req.app.get("io");
+  io.to(groupId).emit("alert-released", {
+    groupId,
+    triggeredBy,
+    message: "Alert released.",
+    alertId: `${groupId}_released_${Date.now()}`,
+    activeAlerts: groupAlertStatus[groupId], // Remaining alerts
+  });
+  res.json({ status: "alert released" });
 };

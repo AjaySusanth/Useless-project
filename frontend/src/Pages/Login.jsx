@@ -16,7 +16,7 @@ export default function Login() {
     setError("");
     try {
       await login(form);
-      navigate("/dashboard");
+      navigate("/groups");
     } catch (err) {
       setError(err.response?.data?.error || "Invalid credentials");
     }
