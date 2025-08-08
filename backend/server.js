@@ -9,6 +9,8 @@ import { Server as SocketIOServer } from "socket.io";
 import authRoutes from './routes/auth.route.js'
 import userRoutes from './routes/user.route.js'
 import groupRoutes from './routes/group.route.js'
+import alertRoutes from './routes/alert.route.js';
+
 
 dotenv.config();
 const app = express();
@@ -21,8 +23,9 @@ app.use(cookieParser());
 const server = http.createServer(app);
 const io = new SocketIOServer(server, {
   cors: {
-    origin: "*", // In prod, set this to your frontend URL!
-    methods: ["GET", "POST"]
+    origin: "http://localhost:5173",  // In prod, set this to your frontend URL!
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
@@ -51,6 +54,20 @@ app.set("io", io);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/groups", groupRoutes);
+app.use("/api/alerts", alertRoutes);
+
+
+app.post('/api/alerts/trigger-test', (req, res) => {
+  const io = req.app.get('io');
+  io.to('groupId1').emit('alert-triggered', {
+    groupId: 'groupId1',
+    triggeredBy: 'testUser',
+    message: "SHUT UP! MAMA'S CALLING!",
+    alertId: 'testAlertId',
+    startedAt: new Date().toISOString(),
+  });
+  res.json({ status: "alert sent" });
+});
 
 /** --- 5. Connect to MongoDB --- */
 async function connectDB() {

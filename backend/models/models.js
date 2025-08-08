@@ -31,3 +31,19 @@ export const Group = mongoose.model("Group", GroupSchema);
 
 
 
+const AlertSchema = new Schema({
+  group: { type: Schema.Types.ObjectId, ref: "Group", required: true },
+  triggeredBy: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  active: { type: Boolean, default: true },
+  startedAt: { type: Date, default: Date.now },
+  endedAt: { type: Date },
+  hurryUps: [
+    {
+      user: { type: Schema.Types.ObjectId, ref: "User" },
+      at: { type: Date, default: Date.now }
+    }
+  ],
+  funnyMessage: { type: String }
+});
+
+export const Alert = mongoose.model("Alert", AlertSchema);
