@@ -70,14 +70,14 @@ export const releaseAlert = (req, res) => {
 dotenv.config();
 const app = express();
 
-app.use(cors({ origin: "http://localhost:5173", credentials: true }));
+app.use(cors({ origin: "https://useless-project-3zsw.vercel.app", credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
 const server = http.createServer(app);
 const io = new SocketIOServer(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: "https://useless-project-3zsw.vercel.app",
     methods: ["GET", "POST"],
     credentials: true
   }
