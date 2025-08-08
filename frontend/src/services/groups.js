@@ -13,3 +13,9 @@ export const joinGroup = (data) => {
 export const getMyGroups = () => {
   return axios.get(`${API_URL}/mine`, { withCredentials: true });
 };
+
+export const getGroupDetails = (groupId) =>
+  axios.get(`${API_URL}/${groupId}`,{ withCredentials: true });
+
+export const alertGroup = (groupId) =>
+  axios.post(`${API_URL}/trigger`, { groupId },{ withCredentials: true });

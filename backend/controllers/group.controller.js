@@ -86,3 +86,56 @@ export const getMyGroups = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+export const getGroupDetails = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const group = await Group.findById(groupId)
+      .populate("members", "username displayName avatarUrl")
+      .populate("admins", "username displayName avatarUrl");
+    if (!group) return res.status(404).json({ error: "Group not found" });
+
+    res.json({
+      group: {
+        _id: group._id,
+        name: group.name,
+        description: group.description,
+        joinCode: group.joinCode,
+        alertActive: group.alertActive,
+        members: group.members,
+        admins: group.admins,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const triggerAlert = async (req, res) => {
+  try {
+    const { groupId } = req.body;
+    if (!groupId) {
+      return res.status(400).json({ error: "groupId is required" });
+    }
+
+    // Optionally, get user info from auth middleware
+    const userId = req.user?._id || "system";
+    const username = req.user?.username || "system";
+
+    // Emit to the group room
+    const io = req.app.get("io");
+    io.to(groupId).emit("alert-triggered", {
+      groupId,
+      triggeredBy: username,
+      message: "SHUT UP! MAMA'S CALLING!",
+      alertId: `${groupId}_${Date.now()}`,
+      startedAt: new Date().toISOString(),
+    });
+
+    // Optionally, update group.alertActive in DB here
+
+    res.json({ status: "alert sent" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { createGroup, joinGroup, getMyGroups } from "../services/groups";
 
 export default function Groups() {
@@ -6,6 +7,7 @@ export default function Groups() {
   const [error, setError] = useState("");
   const [createForm, setCreateForm] = useState({ name: "", description: "" });
   const [joinCode, setJoinCode] = useState("");
+  const navigate = useNavigate();
 
   const fetchGroups = async () => {
     try {
@@ -24,9 +26,15 @@ export default function Groups() {
     e.preventDefault();
     setError("");
     try {
-      await createGroup(createForm);
+      const group = await createGroup(createForm);
       setCreateForm({ name: "", description: "" });
       fetchGroups();
+      // Redirect to the new group's details page
+      // If your backend returns the created group, use group.data._id
+      // Otherwise, fetchGroups() and redirect to the latest group
+      if (group && group.data && group.data._id) {
+        navigate(`/groups/${group.data._id}`);
+      }
     } catch (err) {
       setError(err.response?.data?.error || "Could not create group");
     }
@@ -42,6 +50,10 @@ export default function Groups() {
     } catch (err) {
       setError(err.response?.data?.error || "Could not join group");
     }
+  };
+
+  const handleGroupClick = (groupId) => {
+    navigate(`/groups/${groupId}`);
   };
 
   return (
@@ -108,7 +120,8 @@ export default function Groups() {
             {groups.map((group) => (
               <li
                 key={group._id}
-                className="bg-[#2a2a2a] p-3 rounded hover:bg-[#3a3a3a] transition"
+                className="bg-[#2a2a2a] p-3 rounded hover:bg-[#3a3a3a] transition cursor-pointer"
+                onClick={() => handleGroupClick(group._id)}
               >
                 <h3 className="font-bold">{group.name}</h3>
                 <p className="text-gray-400 text-sm">{group.description}</p>
