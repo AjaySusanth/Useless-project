@@ -5,7 +5,7 @@ import axios from "axios"; // Added axios import
 import { getGroupDetails } from "../services/groups";
 
 // Adjust to your backend’s Socket.IO endpoint
-const SOCKET_URL = "http://localhost:5000";
+const SOCKET_URL = "https://useless-project-py4u.onrender.com";
 
 // Replace this with your actual user context/hook (from auth)
 const getCurrentUser = () => {
